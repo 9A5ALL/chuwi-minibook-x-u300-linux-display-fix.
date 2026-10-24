@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=CHUWI Display Rotation
+Exec=/home/REPLACE_WITH_USERNAME/.local/bin/chuwi-display.sh
+Terminal=false
+X-GNOME-Autostart-enabled=true

@@ -1,0 +1,11 @@
+--- a/drivers/gpu/drm/i915/display/icl_dsi.c
++++ b/drivers/gpu/drm/i915/display/icl_dsi.c
+@@ -858,7 +858,7 @@
+ 
+ 		ret = intel_de_wait_for_set_us(display,
+ 					       DSI_TRANS_FUNC_CONF(dsi_trans),
+-					       LINK_READY, 2500);
++					       LINK_READY, 10000);
+ 		if (ret)
+ 			drm_err(display->drm, "DSI link not ready\n");
+ 	}
