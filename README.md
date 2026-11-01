@@ -2,7 +2,7 @@
 
 Community documentation of a **single-device, experimental** display initialization workaround on the **CHUWI MiniBook X with Intel U300**, running **Linux Mint 22.3 Cinnamon (X11)** and **Ubuntu HWE kernel `7.0.0-38-generic`**.
 
-> **Status:** Display initialization and landscape operation worked on one tested device after rebuilding and signing a patched Intel `i915` kernel module. **Tearing during 90° rotation remains unresolved.** This is not a verified upstream fix or a generic patch for all CHUWI/Intel devices.
+> **Status (2026-11-01):** Display initialization works with the i915 timeout workaround; rotated-display tearing is resolved on the tested device using a locally rebuilt Xorg with TearFree. Cinnamon restores saved rotation without the five-second watcher. These are community workarounds validated on one device, not a generic fix for all CHUWI/Intel systems.
 
 ## Symptoms
 
@@ -40,36 +40,44 @@ See [`patches/i915-dsi-link-ready-10000us.patch`](patches/i915-dsi-link-ready-10
 
 **Do not copy the tested `i915.ko` binary to another kernel or system.** Compile locally from matching source. A future kernel update may already fix the issue or change the code enough that this patch is inapplicable.
 
-## Landscape rotation on Linux Mint Cinnamon (X11)
+## Rotation without a polling script
 
-The panel is natively portrait. After fixing initialization, the tested device needed:
+Cinnamon now restores the saved `right` rotation after reboot and lid resume on the tested device. The five-second watcher is no longer required. LightDM still performs a single rotation for the login screen.
 
-```bash
-xrandr --output DSI-1 --rotate right
-```
+See [docs/ROTATION.md](docs/ROTATION.md) for migration, backups, recovery, and remaining limitations. The original watcher files are retained only as a legacy fallback; do not enable them for a new setup unless saved configuration fails.
 
-For the LightDM login screen, install [`scripts/chuwi-login-display.sh`](scripts/chuwi-login-display.sh) as `/usr/local/bin/chuwi-login-display.sh`, make it executable, and create `/etc/lightdm/lightdm.conf.d/90-chuwi-display.conf`:
+## Tear-free landscape display
 
-```ini
-[Seat:*]
-display-setup-script=/usr/local/bin/chuwi-login-display.sh
-```
+The distribution's `modesetting` driver ignored `Option "TearFree" "true"`. A locally rebuilt Xorg with the TearFree backport now accepts it and eliminates the observed vertical tear during 90-degree rotation.
 
-Cinnamon may reset rotation after login/resume. The tested workaround is [`scripts/chuwi-display.sh`](scripts/chuwi-display.sh), a user-session watcher checking every 5 seconds. Copy it to `~/.local/bin/chuwi-display.sh`, make it executable, then copy [`scripts/chuwi-display.desktop`](scripts/chuwi-display.desktop) to `~/.config/autostart/chuwi-display.desktop` and **replace `REPLACE_WITH_USERNAME`** in its `Exec=` path. It assumes an X11 session on `DISPLAY=:0` and a connector named `DSI-1`; adapt to your system. It may briefly display portrait orientation after login or resume.
+See [docs/TEARFREE.md](docs/TEARFREE.md) for the exact tested versions, source attribution, build procedure, installation, verification, rollback, and update behavior.
 
-## Known limitations
+## Tested results and limitations
 
-- **Tearing remains** when rotated 90°: a fixed line divides portions of the screen that update at slightly different times while scrolling. Tearing was **not observed with rotation disabled**.
-- The tested DSI mode reports **50 Hz**.
-- `xserver-xorg` **modesetting** driver reported `Option "TearFree" is not used`; enabling it did not solve tearing.
-- DRM `modetest -M i915 -p` on the tested system showed rotation capabilities `rotate-0` and `rotate-180`, **not** `rotate-90`/`rotate-270`, on the displayed planes.
-- The workaround was validated on one hardware/kernel combination only. No upstream acceptance or general reproducibility is claimed.
-- Rebuilding and reinstalling the module may be necessary after every kernel update.
+| Component | Observed result |
+| --- | --- |
+| i915 DSI initialization timeout patch | Stable display initialization on the tested kernel |
+| Patched Xorg with TearFree enabled | Visible tearing eliminated |
+| Desktop and X-Plane 11 | No noticeable performance regression reported; no controlled benchmark |
+| Cinnamon saved rotation | Correct after reboot and lid close/open with polling disabled |
+| LightDM login screen | Still uses one `xrandr --rotate right` call |
+| Display Settings orientation selector | Still unavailable; not fixed by this update |
+| Internal panel | Native 1200 × 1920, displayed landscape at 50 Hz |
+
+Only one device was tested. The kernel module patch and Xorg patch solve separate issues. Neither changes the panel's physical scan direction. Kernel `panel_orientation` overrides have not been tested here. Previously inspected DRM planes reported `rotate-0` and `rotate-180`, not 90/270-degree rotation.
+
+Kernel updates may require rebuilding the matching i915 module. Xorg updates may replace the custom package and require a fresh backport. Do not freeze security updates indefinitely to preserve this workaround.
 
 ## Contributing / upstream report
 
 If you reproduce the issue, include the exact laptop revision, BIOS, kernel version, `uname -a`, `journalctl -k -b` DSI messages, panel mode, and results before/after the timeout change. Avoid sharing serial numbers, personal information, private keys, or credentials. A focused upstream issue should include logs and a reasoned explanation of why the DSI link requires more time.
 
+## Release preparation
+
+See [PUBLISHING.md](PUBLISHING.md) for the proposed release, asset collection and GitHub upload steps. This archive is based on the original project archive; compare it with the current repository before replacing existing files.
+
 ## License
 
-Documentation and helper scripts: MIT (see `LICENSE`). The patch modifies Linux kernel source and is intended to be used under the applicable Linux kernel licensing terms; it is not a replacement for those terms.
+Original documentation and helper scripts: MIT (see `LICENSE`). The patch modifies Linux kernel source and is intended to be used under the applicable Linux kernel licensing terms; it is not a replacement for those terms.
+
+The external Xorg backport is attributed in `docs/TEARFREE.md` and remains subject to its applicable upstream licensing terms. Downloading it does not relicense it under this repository’s MIT license.
